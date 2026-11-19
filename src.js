@@ -19,6 +19,8 @@ function clone(v) { return JSON.parse(JSON.stringify(v)); }
 function load() { try { return { ...clone(initial), ...JSON.parse(localStorage.getItem(STORAGE)) }; } catch { return clone(initial); } }
 let data = load();
 let view = 'student';
+let loginRole = 'student';
+let authenticated = false;
 let category = 'Todos';
 let cart = [];
 let studentOrder = null;
@@ -36,6 +38,21 @@ function header() {
   return `<section class="role-switch" aria-label="Alternar visão">
     <button class="${view === 'student' ? 'active' : ''}" data-view="student">Estudante</button>
     <button class="${view === 'attendant' ? 'active' : ''}" data-view="attendant">Atendente</button>
+  </section>`;
+}
+
+function login() {
+  const isStudent = loginRole === 'student';
+  return `<section class="login-shell" aria-labelledby="login-title">
+    <div class="login-mark">🍞</div><p class="eyebrow">CANTINA DA ESCOLA</p>
+    <h1 id="login-title">Bom intervalo!</h1><p class="login-copy">Entre para pedir seu lanche ou gerenciar os pedidos da cantina.</p>
+    <div class="login-tabs" role="tablist"><button class="${isStudent ? 'active' : ''}" data-login-role="student">Estudante</button><button class="${!isStudent ? 'active' : ''}" data-login-role="attendant">Atendente</button></div>
+    <label>E-mail<input id="login-email" type="email" autocomplete="username" placeholder="nome@escola.com" /></label>
+    <label>Senha<input id="login-password" type="password" autocomplete="current-password" placeholder="Sua senha" /></label>
+    <p class="login-error" aria-live="polite"></p>
+    <button class="login-submit" data-login>Entrar na cantina</button>
+    <div class="quick-access"><span>ACESSO RÁPIDO PARA DEMONSTRAÇÃO</span><button data-demo="student">🎒 Preencher como estudante</button><button data-demo="attendant">🧾 Preencher como atendente</button></div>
+    <p class="login-help">Use os botões rápidos para preencher as credenciais e demonstrar os dois fluxos.</p>
   </section>`;
 }
 
@@ -108,7 +125,7 @@ function stockModal() {
 }
 
 function render() {
-  document.querySelector('#app').innerHTML = `<div class="page"><div class="brand">🍞 <span>Cantina Fácil</span><small>Protótipo interativo</small></div>${header()}${view === 'student' ? student() : attendant()}${cartModal()}${stockModal()}</div>`;
+  document.querySelector('#app').innerHTML = `<div class="page"><div class="brand">🍞 <span>Cantina Fácil</span><small>Protótipo interativo</small></div>${authenticated ? `${header()}${view === 'student' ? student() : attendant()}${cartModal()}${stockModal()}` : login()}</div>`;
 }
 
 function add(id) {
@@ -123,6 +140,26 @@ function advance(id) {
 document.addEventListener('click', e => {
   const el = e.target.closest('button,[data-category]'); if (!el) return;
   if (el.dataset.view) { view = el.dataset.view; cartOpen = false; stockOpen = false; }
+  if (el.dataset.loginRole) { loginRole = el.dataset.loginRole; }
+  if (el.dataset.demo) {
+    const demo = el.dataset.demo === 'student'
+      ? { email: 'aluno@cantina.local', password: 'Aluno123!', role: 'student' }
+      : { email: 'atendente@cantina.local', password: 'Atendente123!', role: 'attendant' };
+    loginRole = demo.role;
+    render();
+    document.querySelector('#login-email').value = demo.email;
+    document.querySelector('#login-password').value = demo.password;
+    return;
+  }
+  if (el.dataset.login !== undefined) {
+    const email = document.querySelector('#login-email')?.value.trim().toLowerCase();
+    const password = document.querySelector('#login-password')?.value;
+    const expected = loginRole === 'student'
+      ? { email: 'aluno@cantina.local', password: 'Aluno123!' }
+      : { email: 'atendente@cantina.local', password: 'Atendente123!' };
+    if (email === expected.email && password === expected.password) { authenticated = true; view = loginRole; }
+    else { const error = document.querySelector('.login-error'); if (error) error.textContent = 'Confira o e-mail e a senha ou use um botão de acesso rápido.'; return; }
+  }
   if (el.dataset.category) category = el.dataset.category;
   if (el.dataset.add) add(el.dataset.add);
   if (el.dataset.cart !== undefined && itemCount()) cartOpen = true;
